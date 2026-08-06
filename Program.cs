@@ -28,7 +28,7 @@ void LoadData(int option)
     else
         File.WriteAllText("player_data.json", JsonSerializer.Serialize(Player, opts)); // reset data
     foreach (Item weapon in Items.WeaponList) // init
-        if (!Player.WeaponUsesAndLevels.ContainsKey(weapon.Name))
+        if (!Player.WeaponUsesAndLevels.ContainsKey(weapon.Name) && weapon.MinimumDepthLevelToFind < 0) // < 0 is basically == -1, which denotes a starter item
             Player.WeaponUsesAndLevels.Add(weapon.Name, new WeaponUseAndLevel()); // (uses, level)
 }
 
@@ -91,7 +91,7 @@ void interpretInput(int option)
             }
             if(input == totalDirections + 1)
             {
-                Console.WriteLine("==Player Information==");
+                Console.WriteLine("==Player Information==\n");
                 foreach (var (name, value) in Player)
                     Console.WriteLine($"{name}: {value}");
                 input = Convert.ToInt32(Console.ReadLine());
@@ -105,27 +105,43 @@ void interpretInput(int option)
             Console.WriteLine(exec.Message + ", " + exec.StackTrace);
             Console.WriteLine("uH oH! sOmEtHinG wEnT wRoNg! Jokes aside, you're gonna have to restart, sorry. Luckily, this game autosaves and autoloads!");
         }
-        int randomItem = rand.Next(100);
-        if(randomItem < 5) // 5% for crystal or fruit
+
+        if(rand.Next(20) == 0) // 5% for crystal or fruit
         {
             string item = "";
             if (Player.MaxPlayerHealth < 400) // life crystal
             {
                 Player.MaxPlayerHealth += 20;
+                Player.AffectHealth(20);
                 item = "Crystal";
             }
             else if (Player.DungeonLevel > 30)
             {
                 Player.MaxPlayerHealth += 5;
+                Player.AffectHealth(5);
                 item = "Fruit";
             }
             if(item.Length > 3)
                 Console.WriteLine($"Woah! You found a Life {item}! Your maximum health has increased to {Player.MaxPlayerHealth}!");
         }
-        else if (randomItem < 20) // 20%
+        else if (rand.Next(5) == 0) // 20%
         {
             Console.WriteLine("You found a healing potion!");
             Player.HealingPotionAmount++;
+        }
+        // accessories
+        List<Accessory> accessoriesNotFound = [..Items.AccessoryList]; // clone
+        foreach (string acc in Player.Accessories)
+            accessoriesNotFound.Remove(Items.AccessoryList.Find(acc2 => acc2.Name == acc)!);
+        if(rand.Next(100) < accessoriesNotFound.Count * 5) // 5% for each accessory
+        {
+            accessoriesNotFound.RemoveAll(acc => acc.MinimumDepthLevelToFind > Player.DungeonLevel); // remove those too shallow to be found
+            if(accessoriesNotFound.Count > 0)
+            {
+                Accessory found = accessoriesNotFound[rand.Next(accessoriesNotFound.Count)];
+                Player.Accessories.Add(found.Name);
+                Console.WriteLine($"Awesome! You found {found.Name}! {found.Description}");
+            }
         }
         Player.DungeonLevel++;
     }
@@ -138,6 +154,26 @@ void interpretInput(int option)
         enemy.Health = (int)(enemy.Health * multiplier);
         enemy.Damage = (int)(enemy.Damage * multiplier);
         bool hasHealed = false;
+        int dodgeChance = 0;
+        int extraDamagePercentage = 0;
+        int defense = 0;
+        foreach (string acc in Player.Accessories)
+        {
+            Accessory accessory = Items.AccessoryList.Find(acc2 => acc2.Name == acc)!;
+            int effect = accessory.AccessoryTypeAndValue.Item2;
+            switch (accessory.AccessoryTypeAndValue.Item1)
+            {
+                case "Dodge":
+                    dodgeChance += effect;
+                    break;
+                case "Damage":
+                    extraDamagePercentage += effect;
+                    break;
+                case "Defense":
+                    defense += effect;
+                    break;
+            }
+        }
         Console.WriteLine("You encounter a " + enemy.Name + "!\nWhat will you do?\n");
         while (enemy.Health > 0)
         {
@@ -174,9 +210,10 @@ void interpretInput(int option)
                 input = Convert.ToInt32(Console.ReadLine());
             }
             Console.Clear();
-            Item selectedWeapon = Items.WeaponList[input - 1];
+            Weapon selectedWeapon = Items.WeaponList[input - 1];
             Player.IncreaseWeaponUse(selectedWeapon);
             int damage = selectedWeapon.Damage + (int)(selectedWeapon.Damage * ((Player.WeaponUsesAndLevels[selectedWeapon.Name].Level - 1)/10.0));
+            damage += (int)(damage * (extraDamagePercentage/100.0));
             enemy.Health -= damage;
             if (enemy.Health < 0)
             {
@@ -191,20 +228,23 @@ void interpretInput(int option)
                 enemy.Debuffs.Add("Bleeding");
             Console.WriteLine("You swing your " + selectedWeapon.Name + ", dealing " + damage + " damage. The " + enemy.Name + " now has " + enemy.Health + " hitpoints.\n");
             //dodge chance
-            if (rand.Next(5) == 0 && input == 2)
+            if (input == 2 && rand.Next(5) == 0)
                 Console.WriteLine("You attack so fast, the enemy can't attack you back!\n");
+            else if (rand.Next(100) < dodgeChance)
+                Console.WriteLine("Because of your mobility accessories, you dodge the enemy's attack!");
             //enemy attack
             else
             {
                 int damageTaken = rand.Next(enemy.Damage);
                 damageTaken = (int)(enemy.Debuffs.Contains("Bleeding") ? damageTaken * 0.75 : damageTaken);
+                damageTaken -= defense;
                 Player.AffectHealth(-damageTaken);
                 Console.Write("The " + enemy.Name + " attacks you! It deals " + damageTaken + " damage. You now have " + Player.PlayerHealth + " hitpoints.\n");
                 if (Player.PlayerHealth <= 0)
                 {
                     Console.Clear();
                     Console.WriteLine($"You were slain! Final Score: {Player.DungeonLevel}");
-                    Console.WriteLine("Don't give up though! You can restart at dungeon level 1, keeping your maximum hp, your weapon levels, AND healing potion amount!");
+                    Console.WriteLine("Don't give up though! You can restart at dungeon level 1, keeping your items you have found so far along with your weapon levels!");
                     Console.WriteLine("Press any key to restart.");
                     Console.ReadLine();
                     enemy.Health = -1;

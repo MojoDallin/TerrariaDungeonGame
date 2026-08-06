@@ -12,6 +12,7 @@ namespace DungeonGame
         public int DungeonLevel { get; set; } = 1;
         public int HealingPotionAmount { get; set; } = 5;
         public Dictionary<string, WeaponUseAndLevel> WeaponUsesAndLevels { get; set; } = [];
+        public List<string> Accessories { get; set; } = [];
         public void IncreaseWeaponUse(Item weapon)
         {
             if (WeaponUsesAndLevels[weapon.Name].Level < 11) // cap of 11 levels
@@ -32,6 +33,13 @@ namespace DungeonGame
             yield return ("Maximum Health", MaxPlayerHealth);
             yield return ("Current Depth Level", DungeonLevel);
             yield return ("Amount Of Healing Potions", HealingPotionAmount);
+            for (int i = 0; i < Accessories.Count; i++)
+            {
+                Accessory acc = Items.AccessoryList.Find(acc2 => acc2.Name == Accessories[i])!;
+                if (i == 0)
+                    Console.WriteLine("\n==Accessories==\n");
+                yield return (acc.Name, acc.Description);
+            }
             foreach (KeyValuePair<string, WeaponUseAndLevel> pair in WeaponUsesAndLevels)
             {
                 if (pair.Key == "Fiery Greatsword") // always first weapon
