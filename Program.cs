@@ -25,7 +25,7 @@ void LoadData(int option)
         else
             File.WriteAllText("player_data.json", JsonSerializer.Serialize(Player, opts));
     }
-    else
+    else if(option == 0)
         File.WriteAllText("player_data.json", JsonSerializer.Serialize(Player, opts)); // reset data
     foreach (Item weapon in Items.WeaponList) // init
         if (!Player.WeaponUsesAndLevels.ContainsKey(weapon.Name) && weapon.MinimumDepthLevelToFind < 0) // < 0 is basically == -1, which denotes a starter item
@@ -39,7 +39,7 @@ void SaveGame()
 }
 void startGame()
 {
-    Console.WriteLine("Welcome to the Terraria Dungeon! Press 1 to start when you're ready.");
+    Console.WriteLine("Welcome to the Terraria Dungeon! Press 1 to start when you're ready. Alternatively, press 0 to reset your data.");
     int input;
     try
     {
@@ -160,18 +160,21 @@ void interpretInput(int option)
         foreach (string acc in Player.Accessories)
         {
             Accessory accessory = Items.AccessoryList.Find(acc2 => acc2.Name == acc)!;
-            int effect = accessory.AccessoryTypeAndValue.Item2;
-            switch (accessory.AccessoryTypeAndValue.Item1)
+            foreach ((string, int) effect in accessory.AccessoryTypeAndValue)
             {
-                case "Dodge":
-                    dodgeChance += effect;
-                    break;
-                case "Damage":
-                    extraDamagePercentage += effect;
-                    break;
-                case "Defense":
-                    defense += effect;
-                    break;
+                int val = effect.Item2;
+                switch (effect.Item1)
+                {
+                    case "Dodge":
+                        dodgeChance += val;
+                        break;
+                    case "Damage":
+                        extraDamagePercentage += val;
+                        break;
+                    case "Defense":
+                        defense += val;
+                        break;
+                }
             }
         }
         Console.WriteLine("You encounter a " + enemy.Name + "!\nWhat will you do?\n");

@@ -12,10 +12,10 @@
 
         public static List<Accessory> AccessoryList =
         [
-            new Accessory("Cloud in a Bottle", "This cloud in a bottle allows you to double jump! You have an extra 5% dodge chance.", 15, ("Dodge", 5)),
-            new Accessory("Hermes Boots", "These boots allow you to run super fast! You have an extra 5% dodge chance.", 25, ("Dodge", 5)),
-            new Accessory("Shark Tooth Necklace", "This necklace made of shark teeth gives you a nice 10% extra damage on all attacks.", 10, ("Damage", 10)),
-            new Accessory("Hard Shackles", "These hard shackles lightly protect you, shielding you of 2 damage every time you're hit.", 5, ("Defense", 2))
+            new Accessory("Cloud in a Bottle", "This cloud in a bottle allows you to double jump! You have an extra 5% dodge chance.", 15, [("Dodge", 5)]),
+            new Accessory("Hermes Boots", "These boots allow you to run super fast! You have an extra 5% dodge chance.", 25, [("Dodge", 5)]),
+            new Accessory("Shark Tooth Necklace", "This necklace made of shark teeth gives you a nice 10% extra damage on all attacks.", 10, [("Damage", 10)]),
+            new Accessory("Hard Shackles", "These hard shackles lightly protect you, shielding you of 2 damage every time you're hit AND giving you 5% extra damage.", 5, [("Defense", 2), ("Damage", 5)])
         ];
     }
 
@@ -36,11 +36,11 @@
         public int Damage { get; set; } = damage;
         public List<string> OnHitEffects { get; set; } = effects;
     }
-    public class Accessory(string name, string description, int level, (string, int) accessoryBuffs) : Item
+    public class Accessory(string name, string description, int level, List<(string, int)> accessoryBuffs) : Item
     {
         public override string Name { get; set; } = name;
         public override string Description { get; set; } = description;
         public override int MinimumDepthLevelToFind { get; set; } = level;
-        public (string, int) AccessoryTypeAndValue { get; set; } = accessoryBuffs;
+        public List<(string, int)> AccessoryTypeAndValue { get; set; } = accessoryBuffs;
     }
 }
