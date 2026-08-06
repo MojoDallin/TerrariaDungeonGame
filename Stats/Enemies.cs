@@ -18,9 +18,9 @@ namespace DungeonGame.Stats
     {
         public static List<Enemy> EnemyList =
         [
-            new Enemy("Slime", "desc", 30, 10),
-            new Enemy("Zombie", "desc2", 70, 20),
-            new Enemy("Demon Eye", "desc3", 50, 30)
+            new Enemy("Slime", "desc", 35, 15), // name description health damage
+            new Enemy("Zombie", "desc2", 50, 20),
+            new Enemy("Demon Eye", "desc3", 40, 25)
         ];
     }
 }

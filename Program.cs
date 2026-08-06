@@ -3,6 +3,7 @@ using DungeonGame;
 using DungeonGame.Stats;
 using Microsoft.Extensions.Configuration;
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.Serialization;
 using System.Text.Json;
 
@@ -56,19 +57,16 @@ void startGame()
         startGame();
     }
     LoadData(input);
-    interpretInput(1);
+    interpretInput(3); // always path on launch
 }
 startGame();
-void continueForwards()
-{
-    System.Threading.Thread.Sleep(rand.Next(0, 750));
-}
+void continueForwards() => Thread.Sleep(1000);
 void interpretInput(int option)
 {
     Console.Clear();
-    string[] directions = {"Left", "Forward", "Right"};
+    string[] directions = ["Left", "Forward", "Right"];
     //the split pathways stuff thingies
-    if (option == 0)
+    if (option == 0 || option == 1)
     {
         int totalDirections = rand.Next(2, 4);
         string[] newDirections = new string[totalDirections];
@@ -78,18 +76,28 @@ void interpretInput(int option)
             int direction = rand.Next(totalDirections);
             while (directions[direction] == "REMOVED")
                 direction = rand.Next(totalDirections);
-            Console.WriteLine((i + 1) + ": " + directions[direction] + "\n");
+            Console.WriteLine($"[{i + 1}] {directions[direction]}\n");
             newDirections[i] = directions[direction];
             directions[direction] = "REMOVED";
         }
+        Console.WriteLine($"[{totalDirections + 1}] View Player Information");
         try
         {
             int input = Convert.ToInt32(Console.ReadLine());
-            while (input > totalDirections || input < 1)
+            while (input > totalDirections + 1 || input < 1)
             {
                 Console.WriteLine("Invalid number!");
                 input = Convert.ToInt32(Console.ReadLine());
             }
+            if(input == totalDirections + 1)
+            {
+                Console.WriteLine("==Player Information==");
+                foreach (var (name, value) in Player)
+                    Console.WriteLine($"{name}: {value}");
+                input = Convert.ToInt32(Console.ReadLine());
+
+            }
+            Player.AffectHealth(5); // heal by 5 each time you pass a "room"
             takePath(input, newDirections);
         }
         catch (Exception exec)
@@ -97,20 +105,32 @@ void interpretInput(int option)
             Console.WriteLine(exec.Message + ", " + exec.StackTrace);
             Console.WriteLine("uH oH! sOmEtHinG wEnT wRoNg! Jokes aside, you're gonna have to restart, sorry. Luckily, this game autosaves and autoloads!");
         }
-        if (rand.Next(5) == 0) // 20%
+        int randomItem = rand.Next(100);
+        if(randomItem < 5) // 5% for crystal or fruit
+        {
+            string item = "";
+            if (Player.MaxPlayerHealth < 400) // life crystal
+            {
+                Player.MaxPlayerHealth += 20;
+                item = "Crystal";
+            }
+            else if (Player.DungeonLevel > 30)
+            {
+                Player.MaxPlayerHealth += 5;
+                item = "Fruit";
+            }
+            if(item.Length > 3)
+                Console.WriteLine($"Woah! You found a Life {item}! Your maximum health has increased to {Player.MaxPlayerHealth}!");
+        }
+        else if (randomItem < 20) // 20%
         {
             Console.WriteLine("You found a healing potion!");
             Player.HealingPotionAmount++;
         }
-        if (Player.MaxPlayerHealth < 400 && rand.Next(20) == 0) // 5%
-        {
-            Console.WriteLine("Woah! You found a Life Crystal! Max HP increased by 20!");
-            Player.MaxPlayerHealth += 20;
-        }
         Player.DungeonLevel++;
     }
     //combat stuff wooooo
-    else if (option == 1)
+    else if (option == 2) // 33% for combat
     {
         Enemy enemy = Enemies.EnemyList[rand.Next(3)];
         enemy = new(enemy.Name, enemy.Description, enemy.Health, enemy.Damage);
@@ -176,7 +196,7 @@ void interpretInput(int option)
             //enemy attack
             else
             {
-                int damageTaken = rand.Next(20);
+                int damageTaken = rand.Next(enemy.Damage);
                 damageTaken = (int)(enemy.Debuffs.Contains("Bleeding") ? damageTaken * 0.75 : damageTaken);
                 Player.AffectHealth(-damageTaken);
                 Console.Write("The " + enemy.Name + " attacks you! It deals " + damageTaken + " damage. You now have " + Player.PlayerHealth + " hitpoints.\n");
@@ -213,7 +233,7 @@ void interpretInput(int option)
     }
     SaveGame();
     continueForwards();
-    interpretInput(rand.Next(2));
+    interpretInput(rand.Next(3));
 }
 
 void takePath(int direction, string[] directionOptions) => Console.WriteLine("You went " + directionOptions[direction - 1].ToLower() + ".");
