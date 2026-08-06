@@ -1,38 +1,40 @@
 ﻿//data
+using DungeonGame;
+using DungeonGame.Stats;
+using Microsoft.Extensions.Configuration;
+using System.Diagnostics;
 using System.Runtime.Serialization;
+using System.Text.Json;
 
-string[] ENEMIES = {"Slime", "Zombie", "Demon Eye"};
-int[] ENEMY_HP = {30, 100, 120};
-string[] WEAPONS = {"Fiery Greatsword", "Muramasa", "Blade of Grass", "Blood Butcherer"};
-int[] WEAPON_DAMAGE = {35, 30, 20, 25 };
-string[] WEAPON_DESCRIPTIONS = { "A big sword with decent damage. Great for multiple enemies with high HP, and sets them on fire.",
-    "A small, fast-swinging sword. Great for multiple enemies with low HP. Due to it's speed, enemies can fail to attack you!",
-    "A big sword with lower damage that can poison enemies. Good for one enemy with low HP, and poisons them.",
-    "A decently-sized sword, great for taking out a single enemy with high HP. Due to it's size, you can sometimes dodge enemies!"};
-string[] CONSUMABLES = {"Healing Potion"};
-int[] consumableAmounts = { 5 };
-int playerHP = 100;
-int dungeonLevel = 1;
-Random rand = new Random();
+PlayerData Player = new();
+Random rand = new();
+JsonSerializerOptions opts = new() { WriteIndented = true };
 
-void updateStats()
-{
-    for (int i = 0; i < ENEMY_HP.Length; i++)
-        ENEMY_HP[i] *= 1 + (dungeonLevel/10);
-}
 //execution
 
-void saveAndLoadGame(bool save)
-{ // line 1: player hp, line 2: dungeon level
-    string PATH = "C:\\Users\\dalli\\source\\repos\\DungeonGame\\Data.txt";
-    if (!save)
+void LoadData(int option)
+{
+    if (option == 1)
     {
-        string[] data = System.IO.File.ReadAllLines(PATH);
-        playerHP = Convert.ToInt32(data[0]);
-        dungeonLevel = Convert.ToInt32(data[1]);
+        if (File.Exists("player_data.json"))
+        {
+            string txt = File.ReadAllText("player_data.json");
+            Player = JsonSerializer.Deserialize<PlayerData>(txt, opts)!;
+        }
+        else
+            File.WriteAllText("player_data.json", JsonSerializer.Serialize(Player, opts));
     }
     else
-        File.WriteAllText(@PATH, playerHP + "\n" + dungeonLevel);
+        File.WriteAllText("player_data.json", JsonSerializer.Serialize(Player, opts)); // reset data
+    foreach (Item weapon in Items.WeaponList) // init
+        if (!Player.WeaponUsesAndLevels.ContainsKey(weapon.Name))
+            Player.WeaponUsesAndLevels.Add(weapon.Name, new WeaponUseAndLevel()); // (uses, level)
+}
+
+void SaveGame()
+{
+    string txt = JsonSerializer.Serialize(Player, opts);
+    File.WriteAllText("player_data.json", txt);
 }
 void startGame()
 {
@@ -53,13 +55,13 @@ void startGame()
         Console.WriteLine("Something went wrong! Oops.");
         startGame();
     }
-    saveAndLoadGame(false);
+    LoadData(input);
     interpretInput(1);
 }
 startGame();
 void continueForwards()
 {
-    System.Threading.Thread.Sleep(rand.Next(0, 3000));
+    System.Threading.Thread.Sleep(rand.Next(0, 750));
 }
 void interpretInput(int option)
 {
@@ -95,43 +97,50 @@ void interpretInput(int option)
             Console.WriteLine(exec.Message + ", " + exec.StackTrace);
             Console.WriteLine("uH oH! sOmEtHinG wEnT wRoNg! Jokes aside, you're gonna have to restart, sorry. Luckily, this game autosaves and autoloads!");
         }
-        if (rand.Next(10) == 0)
+        if (rand.Next(5) == 0) // 20%
         {
             Console.WriteLine("You found a healing potion!");
-            consumableAmounts[0]++;
+            Player.HealingPotionAmount++;
         }
-        dungeonLevel++;
+        if (Player.MaxPlayerHealth < 400 && rand.Next(20) == 0) // 5%
+        {
+            Console.WriteLine("Woah! You found a Life Crystal! Max HP increased by 20!");
+            Player.MaxPlayerHealth += 20;
+        }
+        Player.DungeonLevel++;
     }
     //combat stuff wooooo
     else if (option == 1)
     {
-        int enemy = rand.Next(3);
-        int enemyHP = ENEMY_HP[enemy];
+        Enemy enemy = Enemies.EnemyList[rand.Next(3)];
+        enemy = new(enemy.Name, enemy.Description, enemy.Health, enemy.Damage);
+        double multiplier = Player.DungeonLevel / 10.0; // increase stats
+        enemy.Health = (int)(enemy.Health * multiplier);
+        enemy.Damage = (int)(enemy.Damage * multiplier);
         bool hasHealed = false;
-        bool fireEffect = false;
-        bool poisonEffect = false;
-        Console.WriteLine("You encounter a " + ENEMIES[enemy] + "!\nWhat will you do?\n");
-        while (enemyHP > 0)
+        Console.WriteLine("You encounter a " + enemy.Name + "!\nWhat will you do?\n");
+        while (enemy.Health > 0)
         {
             //player attack
-            for (int i = 0; i < WEAPONS.Length; i++)
-                Console.WriteLine((i + 1) + ": " + WEAPONS[i] + ": " + WEAPON_DESCRIPTIONS[i]);
-            Console.WriteLine("5: Healing Potion: Heals 50 hp. Usable once per fight.");
-            int input = Convert.ToInt32((Console.ReadLine()));
+            for (int i = 0; i < Items.WeaponList.Count; i++)
+            {
+                Item weapon = Items.WeaponList[i];
+                Console.WriteLine($"[{i + 1}] {weapon.Name}: {weapon.Description}");
+            }
+            Console.WriteLine("[5] Healing Potion: Heals 50 hp. Usable once per fight.");
+            int input = Convert.ToInt32(Console.ReadLine());
             while(input == 5)
             {
                 if (!hasHealed)
                 {
-                    if (consumableAmounts[0] == 0)
+                    if (Player.HealingPotionAmount == 0)
                         Console.WriteLine("You don't have any healing potions!");
                     else
                     {
-                        playerHP += 50;
-                        if (playerHP > 200)
-                            playerHP = 200;
-                        Console.WriteLine("You have been healed! Your hitpoints are now " + playerHP + ".");
-                        consumableAmounts[0]--;
-                        Console.WriteLine("You now have " + consumableAmounts[0] + " healing potions.");
+                        Player.AffectHealth(50);
+                        Console.WriteLine("You have been healed! Your hitpoints are now " + Player.PlayerHealth + ".");
+                        Player.HealingPotionAmount--;
+                        Console.WriteLine("You now have " + Player.HealingPotionAmount + " healing potions.");
                         hasHealed = true;
                     }
                 }
@@ -139,55 +148,71 @@ void interpretInput(int option)
                     Console.WriteLine("Cannot heal, you have already healed!");
                 input = Convert.ToInt32(Console.ReadLine());
             }
-            while (input > WEAPONS.Length || input < 1)
+            while (input > Items.WeaponList.Count + 1 || input < 1)
             {
                 Console.WriteLine("Not an option!");
                 input = Convert.ToInt32(Console.ReadLine());
             }
             Console.Clear();
-            int damage = WEAPON_DAMAGE[input - 1];
-            enemyHP -= damage;
-            if (enemyHP < 0)
+            Item selectedWeapon = Items.WeaponList[input - 1];
+            Player.IncreaseWeaponUse(selectedWeapon);
+            int damage = selectedWeapon.Damage + (int)(selectedWeapon.Damage * ((Player.WeaponUsesAndLevels[selectedWeapon.Name].Level - 1)/10.0));
+            enemy.Health -= damage;
+            if (enemy.Health < 0)
             {
-                Console.WriteLine("You defeated the " + ENEMIES[enemy] + "!\n");
+                Console.WriteLine("You defeated the " + enemy.Name + "!\n");
                 break;
             }
             if (input == 1)
-                fireEffect = true;
+                enemy.Debuffs.Add("Fire");
             else if (input == 3)
-                poisonEffect = true;
-            Console.WriteLine("You swing your " + WEAPONS[input - 1] + ", dealing " + damage + " damage. The " + ENEMIES[enemy] + " now has " + enemyHP + " hitpoints.\n");
+                enemy.Debuffs.Add("Poison");
+            else if (input == 4) // blood butcherer
+                enemy.Debuffs.Add("Bleeding");
+            Console.WriteLine("You swing your " + selectedWeapon.Name + ", dealing " + damage + " damage. The " + enemy.Name + " now has " + enemy.Health + " hitpoints.\n");
             //dodge chance
-            if (rand.Next(5) == 0)
-            {
-                if (input == 2)
-                    Console.WriteLine("You attack so fast, the enemy can't attack you back!\n");
-                else if (input == 4)
-                    Console.WriteLine("Your sword is so big, you manage to dodge the enemy's attack!\n");
-            }
+            if (rand.Next(5) == 0 && input == 2)
+                Console.WriteLine("You attack so fast, the enemy can't attack you back!\n");
             //enemy attack
             else
             {
                 int damageTaken = rand.Next(20);
-                playerHP -= damageTaken;
-                Console.Write("The " + ENEMIES[enemy] + " attacks you! It deals " + damageTaken + " damage. You now have " + playerHP + " hitpoints.");
-                if (fireEffect)
+                damageTaken = (int)(enemy.Debuffs.Contains("Bleeding") ? damageTaken * 0.75 : damageTaken);
+                Player.AffectHealth(-damageTaken);
+                Console.Write("The " + enemy.Name + " attacks you! It deals " + damageTaken + " damage. You now have " + Player.PlayerHealth + " hitpoints.\n");
+                if (Player.PlayerHealth <= 0)
                 {
-                    Console.WriteLine("It also takes 5 burn damage.");
-                    enemyHP -= 5;
+                    Console.Clear();
+                    Console.WriteLine($"You were slain! Final Score: {Player.DungeonLevel}");
+                    Console.WriteLine("Don't give up though! You can restart at dungeon level 1, keeping your maximum hp, your weapon levels, AND healing potion amount!");
+                    Console.WriteLine("Press any key to restart.");
+                    Console.ReadLine();
+                    enemy.Health = -1;
+                    enemy.Debuffs.Clear();
+                    Player.PlayerHealth = 150;
+                    Player.DungeonLevel = 1;
                 }
-                else if (poisonEffect)
-                {
-                    Console.WriteLine("It also takes 10 poison damage.");
-                    enemyHP -= 10;
-                }
-                Console.WriteLine("\n");
             }
+            foreach(string d in enemy.Debuffs)
+            {
+                if (d == "Fire")
+                {
+                    enemy.Health -= 7;
+                    Console.WriteLine($"The enemy also takes 7 burn damage, leaving it at {enemy.Health}.");
+                }
+                else if (d == "Poison")
+                {
+                    enemy.Health -= 10;
+                    Console.WriteLine($"The enemy also takes 10 poison damage, leaving it at {enemy.Health}.");
+                }
+                else if (d == "Bleeding")
+                    Console.WriteLine("The enemy is bleeding, which means it can only deal 75% of its damage!");
+            }
+            Console.WriteLine();
         }
     }
-    saveAndLoadGame(true);
+    SaveGame();
     continueForwards();
-    updateStats();
     interpretInput(rand.Next(2));
 }
 
