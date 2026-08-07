@@ -10,12 +10,19 @@
             new Weapon("Blood Butcherer", "A large sword that hits one enemy, but can cause the enemy to bleed.", -1, 30, ["Bleed"])
         ];
 
+        public static List<string> EffectTypes =
+        [
+        "Dodge",
+        "Damage",
+        "Defense"
+        ];
+
         public static List<Accessory> AccessoryList =
         [
-            new Accessory("Cloud in a Bottle", "This cloud in a bottle allows you to double jump! You have an extra 5% dodge chance.", 15, [("Dodge", 5)]),
-            new Accessory("Hermes Boots", "These boots allow you to run super fast! You have an extra 5% dodge chance.", 25, [("Dodge", 5)]),
-            new Accessory("Shark Tooth Necklace", "This necklace made of shark teeth gives you a nice 10% extra damage on all attacks.", 10, [("Damage", 10)]),
-            new Accessory("Hard Shackles", "These hard shackles lightly protect you, shielding you of 2 damage every time you're hit AND giving you 5% extra damage.", 5, [("Defense", 2), ("Damage", 5)])
+            new Accessory("Cloud in a Bottle", "This cloud in a bottle allows you to double jump! You have an extra 5% dodge chance.", 15, [(EffectTypes[0], 5)]),
+            new Accessory("Hermes Boots", "These boots allow you to run super fast! You have an extra 5% dodge chance.", 25, [(EffectTypes[0], 5)]),
+            new Accessory("Shark Tooth Necklace", "This necklace made of shark teeth gives you a nice 10% extra damage on all attacks.", 10, [(EffectTypes[1], 10)]),
+            new Accessory("Hard Shackles", "These hard shackles lightly protect you, shielding you of 2 damage every time you're hit AND giving you 5% extra damage.", 5, [(EffectTypes[2], 2), (EffectTypes[1], 5)])
         ];
     }
 
@@ -42,5 +49,14 @@
         public override string Description { get; set; } = description;
         public override int MinimumDepthLevelToFind { get; set; } = level;
         public List<(string, int)> AccessoryTypeAndValue { get; set; } = accessoryBuffs;
+    }
+    public class Armor(string name, string description, string EquipmentType, int EquipmentSlot, List<Tuple<string, int>> ArmorEffects) : Item
+    {
+        public override string Name { get; set; } = name;
+        public override string Description { get; set; } = description;
+        public override int MinimumDepthLevelToFind { get; set; } = 0;
+        public string EquipmentType { get; set; } = EquipmentType; // copper iron silver gold etc
+        public int EquipmentSlot { get; set; } = EquipmentSlot; // 0 for head, 1 for torso, 2 for legs
+        public List<Tuple<string, int>> ArmorEffects { get; set; } = ArmorEffects;
     }
 }

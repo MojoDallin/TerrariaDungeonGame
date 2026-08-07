@@ -60,7 +60,7 @@ void startGame()
     interpretInput(3); // always path on launch
 }
 startGame();
-void continueForwards() => Thread.Sleep(1000);
+void continueForwards() => Thread.Sleep(500);
 void interpretInput(int option)
 {
     Console.Clear();
@@ -106,7 +106,7 @@ void interpretInput(int option)
             Console.WriteLine("uH oH! sOmEtHinG wEnT wRoNg! Jokes aside, you're gonna have to restart, sorry. Luckily, this game autosaves and autoloads!");
         }
 
-        if(rand.Next(20) == 0) // 5% for crystal or fruit
+        if(rand.Next(20) <= 0 + (Player.DungeonLevel/20)) // 5% for crystal or fruit, with an extra 5% every 20 levels
         {
             string item = "";
             if (Player.MaxPlayerHealth < 400) // life crystal
@@ -115,7 +115,7 @@ void interpretInput(int option)
                 Player.AffectHealth(20);
                 item = "Crystal";
             }
-            else if (Player.DungeonLevel > 30)
+            else if (Player.MaxPlayerHealth < 500 && Player.DungeonLevel > 30)
             {
                 Player.MaxPlayerHealth += 5;
                 Player.AffectHealth(5);
@@ -143,6 +143,51 @@ void interpretInput(int option)
                 Console.WriteLine($"Awesome! You found {found.Name}! {found.Description}");
             }
         }
+        // armor
+        if(rand.Next(20) <= 0 + (Player.DungeonLevel/15)) // 5% with an extra 5% every 15 levels
+        {
+            string[] rarities = ["Copper", "Iron", "Silver", "Gold"];
+            int rarity = 0; // worst pony of all time
+            for(int i = 0; i < Player.DungeonLevel/15; i++)
+            { // reroll (basically higher rarity chance for higher level)
+                int newRarity = rand.Next(rarities.Length);
+                if (newRarity > rarity)
+                    rarity = newRarity;
+                if (newRarity == rarities.Length - 1)
+                    break;
+            }
+            string type = rarities[rarity];
+            int armorType = rand.Next(3); // one of 3 armor pieces
+            string[] slots = ["Helmet", "Chestplate", "Leggings"];
+            List<(string, int)> armorEffects = [];
+            List<string> EffectTypesCopy = [..Items.EffectTypes];
+            Armor armor = new($"{type} {slots[armorType]}", "", type, armorType, []);
+            int effectAmount = Math.Min(rand.Next(1, 1 + Player.DungeonLevel / 20), EffectTypesCopy.Count);
+            for(int i = 0; i < effectAmount; i++) // atleast 1 effect, with a possibility for another one each 20 levels
+            {
+                int value = rand.Next(1, 5 * (rarity + 1)); // atleast a 5% effect, with upwards of 20%!!
+                int index = rand.Next(EffectTypesCopy.Count);
+                string effect = EffectTypesCopy[index];
+                armor.ArmorEffects.Add(Tuple.Create(effect, value));
+                armor.Description += $"+{value} {effect}\n";
+                EffectTypesCopy.RemoveAt(index);
+            }
+            armor.Description = armor.Description[..^1]; // get rid of newline
+            Console.WriteLine($"Sweet! You found a {armor.Name}! It grants you:\n{armor.Description}");
+            if (Player.Armor[armorType] is not null)
+            {
+                Console.WriteLine($"You currently have a {Player.Armor[armorType].Name} equipped, which grants you:\n{Player.Armor[armorType].Description}");
+                Console.WriteLine("Press 1 to replace it, or press 2 to keep your old armor.");
+                string? input = Console.ReadLine();
+                if (input is not null && input.Contains('1'))
+                    Player.Armor[armorType] = armor;
+            }
+            else
+            {
+                Console.WriteLine("You currently have nothing equipped, so it has been automatically equipped!");
+                Player.Armor[armorType] = armor;
+            }
+        }
         Player.DungeonLevel++;
     }
     //combat stuff wooooo
@@ -157,6 +202,7 @@ void interpretInput(int option)
         int dodgeChance = 0;
         int extraDamagePercentage = 0;
         int defense = 0;
+        // accessory buffs
         foreach (string acc in Player.Accessories)
         {
             Accessory accessory = Items.AccessoryList.Find(acc2 => acc2.Name == acc)!;
@@ -174,6 +220,29 @@ void interpretInput(int option)
                     case "Defense":
                         defense += val;
                         break;
+                }
+            }
+        }
+        // armor buffs
+        foreach(Armor armor in Player.Armor)
+        {
+            if (armor is not null)
+            {
+                foreach (Tuple<string, int> armorEffect in armor.ArmorEffects)
+                {
+                    int val = armorEffect.Item2;
+                    switch (armorEffect.Item1)
+                    {
+                        case "Dodge":
+                            dodgeChance += val;
+                            break;
+                        case "Damage":
+                            extraDamagePercentage += val;
+                            break;
+                        case "Defense":
+                            defense += val;
+                            break;
+                    }
                 }
             }
         }
@@ -234,13 +303,13 @@ void interpretInput(int option)
             if (input == 2 && rand.Next(5) == 0)
                 Console.WriteLine("You attack so fast, the enemy can't attack you back!\n");
             else if (rand.Next(100) < dodgeChance)
-                Console.WriteLine("Because of your mobility accessories, you dodge the enemy's attack!");
+                Console.WriteLine("Because of your mobility accessories and armor, you're able to dodge the enemy's attack!");
             //enemy attack
             else
             {
                 int damageTaken = rand.Next(enemy.Damage);
                 damageTaken = (int)(enemy.Debuffs.Contains("Bleeding") ? damageTaken * 0.75 : damageTaken);
-                damageTaken -= defense;
+                damageTaken = Math.Max(damageTaken - defense, 0); // enemies cant deal negative damage
                 Player.AffectHealth(-damageTaken);
                 Console.Write("The " + enemy.Name + " attacks you! It deals " + damageTaken + " damage. You now have " + Player.PlayerHealth + " hitpoints.\n");
                 if (Player.PlayerHealth <= 0)

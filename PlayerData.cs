@@ -13,6 +13,7 @@ namespace DungeonGame
         public int HealingPotionAmount { get; set; } = 5;
         public Dictionary<string, WeaponUseAndLevel> WeaponUsesAndLevels { get; set; } = [];
         public List<string> Accessories { get; set; } = [];
+        public Armor[] Armor { get; set; } = new Armor[3]; // head torso legs
         public void IncreaseWeaponUse(Item weapon)
         {
             if (WeaponUsesAndLevels[weapon.Name].Level < 11) // cap of 11 levels
@@ -39,6 +40,14 @@ namespace DungeonGame
                 if (i == 0)
                     Console.WriteLine("\n==Accessories==\n");
                 yield return (acc.Name, acc.Description);
+            }
+            for(int i = 0; i < Armor.Length; i++)
+            {
+                Armor arm = Armor[i];
+                if (i == 0)
+                    Console.WriteLine("\n==Armor==\n");
+                if(arm is not null)
+                    yield return (arm.Name, "\n" + arm.Description);
             }
             foreach (KeyValuePair<string, WeaponUseAndLevel> pair in WeaponUsesAndLevels)
             {
