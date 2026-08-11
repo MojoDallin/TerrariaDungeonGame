@@ -72,9 +72,10 @@ namespace DungeonGame
             }
             foreach(Armor armor in Armor)
             {
-                foreach (Tuple<string, int> effect in armor.ArmorEffects)
-                    if (!returnDict.TryAdd(effect.Item1, effect.Item2))
-                        returnDict[effect.Item1] += effect.Item2;
+                if (armor is not null)
+                    foreach (Tuple<string, int> effect in armor.ArmorEffects)
+                        if (!returnDict.TryAdd(effect.Item1, effect.Item2))
+                            returnDict[effect.Item1] += effect.Item2;
             }
             return returnDict;
         }

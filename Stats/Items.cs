@@ -35,13 +35,13 @@
         public override bool Equals(object? obj) => obj is Item item && Name == item.Name;
         public override int GetHashCode() => Name.GetHashCode();
     }
-    public class Weapon(string name, string description, int level, int damage, List<string> effects) : Item
+    public class Weapon(string name, string description, int minimumDepthLevelToFind, int damage, List<string> onHitEffects) : Item
     {
         public override string Name { get; set; } = name;
         public override string Description { get; set; } = description;
-        public override int MinimumDepthLevelToFind { get; set; } = level;
+        public override int MinimumDepthLevelToFind { get; set; } = minimumDepthLevelToFind;
         public int Damage { get; set; } = damage;
-        public List<string> OnHitEffects { get; set; } = effects;
+        public List<string> OnHitEffects { get; set; } = onHitEffects;
     }
     public class Accessory(string name, string description, int level, List<Tuple<string, int>> accessoryBuffs) : Item
     {

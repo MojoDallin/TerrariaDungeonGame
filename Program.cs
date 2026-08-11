@@ -16,18 +16,72 @@ RandomChanceRolls Events = new();
 
 void LoadData(int option)
 {
-    if (option == 1)
+    bool loadData = true;
+    switch (option)
     {
-        if (File.Exists("player_data.json"))
-        {
-            string txt = File.ReadAllText("player_data.json");
-            Player = JsonSerializer.Deserialize<PlayerData>(txt, opts)!;
-        }
-        else
-            File.WriteAllText("player_data.json", JsonSerializer.Serialize(Player, opts));
+        case 1:
+            if (File.Exists("player_data.json"))
+            {
+                string txt = File.ReadAllText("player_data.json");
+                Player = JsonSerializer.Deserialize<PlayerData>(txt, opts)!;
+            }
+            else
+                File.WriteAllText("player_data.json", JsonSerializer.Serialize(Player, opts));
+            loadData = false;
+            break;
+        case 0:
+            File.WriteAllText("player_data.json", JsonSerializer.Serialize(Player, opts)); // reset data
+            break;
+        case 2:
+            string[] tdcFiles = Directory.GetFiles(Directory.GetCurrentDirectory(), "*.tdc?", SearchOption.AllDirectories); // ? allows it to search for tdce and tdci
+            if (tdcFiles.Length < 1)
+                Console.WriteLine("Couldn't find any custom files! Did you place them in the correct directory?");
+            else
+            {
+                Console.WriteLine($"Found {tdcFiles.Length} custom files:");
+                for(int index = 0; index < tdcFiles.Length; index++)
+                    Console.WriteLine($"[{index}] {Path.GetFileName(tdcFiles[index])}");
+                Console.WriteLine("Type the numbers (separated by space) of the ones you would like to use (ex. 0 1 2 3; alternatively, type ALL for everything):");
+                List<string> options = [.. Console.ReadLine()!.Split(" ")];
+                if (options[0].Equals("ALL", StringComparison.CurrentCultureIgnoreCase))
+                {
+                    options.Clear();
+                    for (int index = 0; index < tdcFiles.Length; index++)
+                        options.Add(index.ToString());
+                }
+                foreach(string opt in options)
+                {
+                    int index = Int32.Parse(opt);
+                    string json = File.ReadAllText(tdcFiles[index]);
+                    if (tdcFiles[index].Contains("tdce")) // enemy
+                        Enemies.EnemyList.Add(JsonSerializer.Deserialize<Enemy>(json, opts)!);
+                    else if (tdcFiles[index].Contains("tdcw")) // weapon
+                        Items.WeaponList.Add(JsonSerializer.Deserialize<Weapon>(json, opts)!);
+                    else if (tdcFiles[index].Contains("tdca")) // accessory
+                        Items.AccessoryList.Add(JsonSerializer.Deserialize<Accessory>(json, opts)!);
+                }
+            }
+            break;
+        case 3:
+            CustomEnemyItemCreator creator = new();
+            Console.Clear();
+            Console.WriteLine("Choose what you would like to create...");
+            Console.WriteLine("[1] Weapon");
+            Console.WriteLine("[2] Accessory");
+            Console.WriteLine("[3] Enemy");
+            switch (Console.ReadLine())
+            {
+                case "1":
+                    creator.CreateWeapon();
+                    break;
+                case "3":
+                    creator.CreateEnemy();
+                    break;
+            }
+            break;
     }
-    else if(option == 0)
-        File.WriteAllText("player_data.json", JsonSerializer.Serialize(Player, opts)); // reset data
+    if (loadData)
+        LoadData(1);
     foreach (Item weapon in Items.WeaponList) // init
         if (!Player.WeaponUsesAndLevels.ContainsKey(weapon.Name) && weapon.MinimumDepthLevelToFind < 0) // < 0 is basically == -1, which denotes a starter item
             Player.WeaponUsesAndLevels.Add(weapon.Name, new WeaponUseAndLevel()); // (uses, level)
@@ -40,7 +94,11 @@ void SaveGame()
 }
 void startGame()
 {
-    Console.WriteLine("Welcome to the Terraria Dungeon! Press 1 to start when you're ready. Alternatively, press 0 to reset your data.");
+    Console.WriteLine("Welcome to the Terraria Dungeon! Options:");
+    Console.WriteLine("[1] Start the game, where you previously left off.");
+    Console.WriteLine("[2] Use custom items/enemies yourself or others have made!");
+    Console.WriteLine("[3] Create a custom item/enemy to use/encounter in your runs!");
+    Console.WriteLine("[0] Start the game, but erase your data instead.");
     int input;
     try
     {
@@ -117,9 +175,9 @@ void interpretInput(int option)
     //combat stuff wooooo
     else if (option == 2) // 33% for combat
     {
-        Enemy enemy = Enemies.EnemyList[rand.Next(3)];
+        Enemy enemy = Enemies.EnemyList[rand.Next(Enemies.EnemyList.Count)];
         enemy = new(enemy.Name, enemy.Description, enemy.Health, enemy.Damage);
-        double multiplier = Player.DungeonLevel / 10.0; // increase stats
+        double multiplier = 1 + Player.DungeonLevel / 10.0; // increase stats
         enemy.Health = (int)(enemy.Health * multiplier);
         enemy.Damage = (int)(enemy.Damage * multiplier);
         bool hasHealed = false;
@@ -129,14 +187,15 @@ void interpretInput(int option)
         while (enemy.Health > 0)
         {
             //player attack
-            for (int i = 0; i < Items.WeaponList.Count; i++)
+            int totalWeapons = Items.WeaponList.Count;
+            for (int i = 0; i < totalWeapons; i++)
             {
                 Item weapon = Items.WeaponList[i];
-                Console.WriteLine($"[{i + 1}] {weapon.Name}: {weapon.Description}");
+                Console.WriteLine($"[{i}] {weapon.Name}: {weapon.Description}");
             }
-            Console.WriteLine("[5] Healing Potion: Heals 50 hp. Usable once per fight.");
+            Console.WriteLine($"[{totalWeapons}] Healing Potion: Heals 50 hp. Usable once per fight.");
             int input = Convert.ToInt32(Console.ReadLine());
-            while(input == 5)
+            while(input == Items.WeaponList.Count)
             {
                 if (!hasHealed)
                 {
@@ -155,13 +214,13 @@ void interpretInput(int option)
                     Console.WriteLine("Cannot heal, you have already healed!");
                 input = Convert.ToInt32(Console.ReadLine());
             }
-            while (input > Items.WeaponList.Count + 1 || input < 1)
+            while (input > Items.WeaponList.Count + 1 || input < 0)
             {
                 Console.WriteLine("Not an option!");
                 input = Convert.ToInt32(Console.ReadLine());
             }
             Console.Clear();
-            Weapon selectedWeapon = Items.WeaponList[input - 1];
+            Weapon selectedWeapon = Items.WeaponList[input];
             Player.IncreaseWeaponUse(selectedWeapon);
             int damage = selectedWeapon.Damage + (int)(selectedWeapon.Damage * ((Player.WeaponUsesAndLevels[selectedWeapon.Name].Level - 1)/10.0));
             if(armorAccessoryBenefits.TryGetValue("Damage", out int extraDmg))
@@ -172,15 +231,12 @@ void interpretInput(int option)
                 Console.WriteLine("You defeated the " + enemy.Name + "!\n");
                 break;
             }
-            if (input == 1)
-                enemy.Debuffs.Add("Fire");
-            else if (input == 3)
-                enemy.Debuffs.Add("Poison");
-            else if (input == 4) // blood butcherer
-                enemy.Debuffs.Add("Bleeding");
+            foreach(string effect in selectedWeapon.OnHitEffects)
+                if(effect != "Dodge")
+                    enemy.Debuffs.Add(effect);
             Console.WriteLine("You swing your " + selectedWeapon.Name + ", dealing " + damage + " damage. The " + enemy.Name + " now has " + enemy.Health + " hitpoints.\n");
             //dodge chance
-            if (input == 2 && rand.Next(5) == 0)
+            if (selectedWeapon.OnHitEffects.Contains("Dodge") && rand.Next(5) == 0)
                 Console.WriteLine("You attack so fast, the enemy can't attack you back!\n");
             else if (armorAccessoryBenefits.TryGetValue("Dodge", out int dodge) && rand.Next(100) < dodge)
                 Console.WriteLine("Because of your mobility accessories and armor, you're able to dodge the enemy's attack!");
@@ -188,7 +244,7 @@ void interpretInput(int option)
             else
             {
                 int damageTaken = rand.Next(enemy.Damage);
-                damageTaken = (int)(enemy.Debuffs.Contains("Bleeding") ? damageTaken * 0.75 : damageTaken);
+                damageTaken = (int)(enemy.Debuffs.Contains("Bleed") ? damageTaken * 0.75 : damageTaken);
                 if (armorAccessoryBenefits.TryGetValue("Defense", out int defense))
                     damageTaken = Math.Max(damageTaken - defense, 0); // enemies cant deal negative damage
                 Player.AffectHealth(-damageTaken);
@@ -224,7 +280,7 @@ void interpretInput(int option)
                     enemy.Health -= 10;
                     Console.WriteLine($"The enemy also takes 10 poison damage, leaving it at {enemy.Health}.");
                 }
-                else if (d == "Bleeding")
+                else if (d == "Bleed")
                     Console.WriteLine("The enemy is bleeding, which means it can only deal 75% of its damage!");
             }
             Console.WriteLine();

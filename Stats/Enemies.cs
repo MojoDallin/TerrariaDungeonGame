@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace DungeonGame.Stats
@@ -12,6 +13,7 @@ namespace DungeonGame.Stats
         public string Description { get; set; } = description;
         public int Health { get; set; } = health;
         public int Damage { get; set; } = damage;
+        [JsonIgnore] // for custom enemies
         public HashSet<string> Debuffs { get; set; } = [];
     }
     public static class Enemies
