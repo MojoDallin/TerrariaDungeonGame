@@ -54,11 +54,12 @@ namespace DungeonGame
         }
         public void RollForArmor(PlayerData Player)
         {
-            if (rand.Next(20) <= 0 + (Player.DungeonLevel / 15)) // 5% with an extra 5% every 15 levels
+            int extraChances = Player.DungeonLevel / 15; // extra 5% every 15 levels
+            if (rand.Next(20) <= 0 + extraChances)
             {
                 string[] rarities = ["Copper", "Iron", "Silver", "Gold"];
                 int rarity = rand.Next(rarities.Length); // worst pony of all time
-                for (int i = 0; i < Player.DungeonLevel / 15; i++)
+                for (int i = 0; i < extraChances; i++)
                 { // reroll (basically higher rarity chance for higher level)
                     int newRarity = rand.Next(rarities.Length);
                     if (newRarity > rarity)
@@ -71,10 +72,19 @@ namespace DungeonGame
                 string[] slots = ["Helmet", "Chestplate", "Leggings"];
                 List<string> EffectTypesCopy = [.. Items.EffectTypes];
                 Armor armor = new($"{type} {slots[armorType]}", "", type, armorType, []);
-                int effectAmount = Math.Min(rand.Next(1, 1 + Player.DungeonLevel / 20), EffectTypesCopy.Count);
+                int effectAmount = Math.Min(rand.Next(1, 1 + extraChances), EffectTypesCopy.Count);
                 for (int i = 0; i < effectAmount; i++) // atleast 1 effect, with a possibility for another one each 20 levels
                 {
-                    int value = rand.Next(1, 5 * (rarity + 1)); // atleast a 5% effect, with upwards of 20%!!
+                    int max = (5 * (rarity + 1)/2) + 1;
+                    int value = rand.Next(1, max); // atleast a 2.5% effect, with upwards of 10%
+                    for(int j = 0; j < extraChances; j++)
+                    {
+                        int newValue = rand.Next(1, max);
+                        if(newValue > value)
+                            value = newValue;
+                        if (value == max)
+                            break;
+                    }
                     int index = rand.Next(EffectTypesCopy.Count);
                     string effect = EffectTypesCopy[index];
                     armor.ArmorEffects.Add(Tuple.Create(effect, value));

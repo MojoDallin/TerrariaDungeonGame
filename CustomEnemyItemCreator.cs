@@ -35,8 +35,10 @@ namespace DungeonGame
             string desc = Console.ReadLine()!;
             Console.Write("Enter the damage of the weapon: ");
             int damage = Int32.Parse(Console.ReadLine()!);
-            Console.Write("Enter the special effects (Fire, Dodge, Poison, Bleed; multiple are supported, separate by comma ONLY, no spaces!!): ");
+            Console.Write("Enter the special effects (Fire, Dodge, Poison, Bleed; multiple are supported, separate by comma): ");
             string[] effects = Console.ReadLine()!.Split(',');
+            for (int i = 0; i < effects.Length; i++)
+                effects[i] = effects[i].Trim(); // get rid of whitespace on ends
             Weapon customItem = new(name, desc, -1, damage, [.. effects]);
             string fileName = name.ToLower().Replace(" ", "_") + ".tdcw"; // Terraria Dungeon Custom Weapon
             File.WriteAllText(fileName, JsonSerializer.Serialize(customItem, opts));
